@@ -1,0 +1,14 @@
+{
+  "name": "Tabula Rasa",
+  "short_name": "TabulaRasa",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#060610",
+  "theme_color": "#060610",
+  "description": "L'homme peut faire ce qu'il veut, mais il ne peut pas vouloir ce qu'il veut.",
+  "icons": [
+    {"src": "icon.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
