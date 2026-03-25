@@ -20,7 +20,6 @@ canvas{display:block;width:100%;height:100%}
 #S input:focus{border-color:#ffd866}
 #S button{background:#ffd866;color:#0a0a14;border:none;padding:9px 24px;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;border-radius:3px;letter-spacing:2px}
 #S .sk{background:none;color:#444;border:1px solid #2a2a3a;margin-top:6px;font-size:9px;padding:7px 20px}
-#E{color:#f66;font-size:9px;max-width:280px;word-break:break-all;margin-top:12px;display:none}
 </style>
 </head>
 <body>
@@ -30,29 +29,19 @@ canvas{display:block;width:100%;height:100%}
 <input id="K" type="password" placeholder="sk-ant-..." autocomplete="off">
 <button onclick="go()">ENTRER</button>
 <button class="sk" onclick="go(true)">sans Director</button>
-<div id="E"></div>
 </div>
 <canvas id="C"></canvas>
+<script src="js/engine.js"></script>
 <script>
-var _apiKey="",_noDir=false;
 var k=localStorage.getItem("trk");
 if(k)document.getElementById("K").value=k;
-
 function go(skip){
-  if(!skip){
-    var k=document.getElementById("K").value.trim();
+  if(!skip){var k=document.getElementById("K").value.trim();
     if(!k){alert("Clé requise.");return}
-    _apiKey=k;localStorage.setItem("trk",k);
-  }else{_noDir=true}
+    setKey(k);localStorage.setItem("trk",k);
+  }else{setNoDir(true)}
   document.getElementById("S").style.display="none";
-  import('./js/main.js').then(function(m){
-    m.startGame(_apiKey,_noDir);
-  }).catch(function(e){
-    document.getElementById("S").style.display="flex";
-    var el=document.getElementById("E");
-    el.style.display="block";
-    el.textContent="Erreur: "+e.message;
-  });
+  startGame();
 }
 </script>
 </body>
