@@ -8,21 +8,10 @@ import { drawGnd, drawBldg, drawTL, drawVeh, drawLamp, drawFig, drawTree, drawPO
 import { Aud } from './audio.js';
 import { Joy } from './ui.js';
 
-// ── SETUP SCREEN ──
-window.addEventListener("DOMContentLoaded",()=>{
-  const k=localStorage.getItem("trk");
-  if(k)document.getElementById("K").value=k;
-});
-document.getElementById("btnGo").addEventListener("click",()=>go());
-document.getElementById("btnSkip").addEventListener("click",()=>go(true));
-
-function go(skip){
-  if(!skip){
-    const k=document.getElementById("K").value.trim();
-    if(!k){alert("Clé requise.");return}
-    setKey(k);localStorage.setItem("trk",k);
-  }else setNoDir(true);
-  document.getElementById("S").style.display="none";
+// ── ENTRY POINT — called from index.html after setup ──
+export function startGame(apiKey, noDir){
+  if(apiKey)setKey(apiKey);
+  if(noDir)setNoDir(true);
   init();
 }
 
