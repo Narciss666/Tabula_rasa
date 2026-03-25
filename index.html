@@ -27,10 +27,10 @@ canvas{display:block;width:100%;height:100%}
 <h1>TABULA RASA</h1>
 <p>Clé API Anthropic pour le Director IA.<br>Stockée localement.</p>
 <input id="K" type="password" placeholder="sk-ant-..." autocomplete="off">
-<button onclick="go()">ENTRER</button>
-<button class="sk" onclick="go(1)">sans Director</button>
+<button id="btnGo">ENTRER</button>
+<button class="sk" id="btnSkip">sans Director</button>
 </div>
 <canvas id="C"></canvas>
-<script src="js/engine.js"></script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
