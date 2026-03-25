@@ -3,46 +3,18 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#060610">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Tabula Rasa</title>
-<link rel="manifest" href="manifest.json">
 <style>
-*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{width:100%;height:100%;overflow:hidden;background:#060610;touch-action:none;user-select:none}
-canvas{display:block;width:100%;height:100%}
-#S{position:fixed;inset:0;background:#060610;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;font-family:'Courier New',monospace;color:#c8c0b4}
-#S h1{font-size:16px;letter-spacing:8px;color:#777;margin-bottom:24px;font-weight:300}
-#S p{font-size:10px;color:#555;max-width:260px;text-align:center;line-height:1.6;margin-bottom:16px}
-#S input{background:#10101c;border:1px solid #2a2a3a;color:#c8c0b4;padding:9px 12px;font-family:'Courier New',monospace;font-size:11px;width:260px;border-radius:3px;margin-bottom:10px;outline:none}
-#S input:focus{border-color:#ffd866}
-#S button{background:#ffd866;color:#0a0a14;border:none;padding:9px 24px;font-family:'Courier New',monospace;font-size:11px;cursor:pointer;border-radius:3px;letter-spacing:2px}
-#S .sk{background:none;color:#444;border:1px solid #2a2a3a;margin-top:6px;font-size:9px;padding:7px 20px}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#060610;touch-action:none}
+canvas{display:block;width:100%!important;height:100%!important}
 </style>
 </head>
 <body>
-<div id="S">
-<h1>TABULA RASA</h1>
-<p>Clé API Anthropic pour le Director IA.<br>Stockée localement.</p>
-<input id="K" type="password" placeholder="sk-ant-..." autocomplete="off">
-<button onclick="go()">ENTRER</button>
-<button class="sk" onclick="go(true)">sans Director</button>
-</div>
-<canvas id="C"></canvas>
-<script src="js/engine.js"></script>
-<script>
-var k=localStorage.getItem("trk");
-if(k)document.getElementById("K").value=k;
-function go(skip){
-  if(!skip){var k=document.getElementById("K").value.trim();
-    if(!k){alert("Clé requise.");return}
-    setKey(k);localStorage.setItem("trk",k);
-  }else{setNoDir(true)}
-  document.getElementById("S").style.display="none";
-  startGame();
-}
-</script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<script src="js/world.js"></script>
+<script src="js/game.js"></script>
 </body>
 </html>
