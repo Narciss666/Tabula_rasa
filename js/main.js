@@ -1,9 +1,10 @@
-// ═══ TABULA RASA — main.js ═══
+// ═══ TABULA RASA — main.js V23 ═══
+// Changes: footprints, NPC proximity awareness, headlight beams
 import { TW, TH, CH, CS, SPD, SPRNT, CLERP, IR, NB } from './config.js';
-import { iso, lp, cl, H, rng } from './utils.js';
+import { iso, lp, cl, H, rng, gDist } from './utils.js';
 import { World } from './world.js';
 import { callDir, save, load, setKey, setNoDir, isNoDir } from './director.js';
-import { drawGnd, drawBldg, drawTL, drawVeh, drawLamp, drawFig, drawTree, drawPOI, drawProp, drawMM, drawInt, genStars } from './renderer.js';
+import { drawGnd, drawBldg, drawTL, drawVeh, drawLamp, drawFig, drawTree, drawPOI, drawProp, drawMM, drawInt, genStars, drawFootprints, drawNpcAware } from './renderer.js';
 import { Aud } from './audio.js';
 import { Joy } from './ui.js';
 
@@ -30,6 +31,7 @@ function init(){
   const cv=document.getElementById("C"),ctx=cv.getContext("2d");
   const joy=new Joy(),world=new World(),audio=new Aud(),stars=genStars();
   let saving=0,shT=0;
+  const footprints=[];let fpAcc=0,fpSide=1;
 
   const G={px:CS/2+.5,py:CS/2+1.5,camX:0,camY:0,time:0,fadeIn:0,keys:{},
     prof:{exploration:0,confrontation:0,social:0,construction:0,meaning:0},
@@ -37,7 +39,8 @@ function init(){
     nearPoi:null,busy:false,narr:null,bubs:[],
     lastIT:-10,lastMT:0,idleT:false,explT:0,fm:false,ft:false,
     mood:"neutral",wth:"clear",dayT:.08,intr:null,intF:0,intD:null,
-    inv:[],nc:{},arcs:[],lpi:null,btnT:null};
+    inv:[],nc:{},arcs:[],lpi:null,btnT:null,
+    facing:0,lastDist:"",distShowT:0};
 
   const sv=load();
   if(sv){Object.assign(G,{...sv,tv:sv.tv||new Set(),fadeIn:0,keys:{},busy:false,narr:null,bubs:[],nearPoi:null,
@@ -112,7 +115,7 @@ function init(){
     if(r.profile_delta)for(const k of Object.keys(G.prof))if(r.profile_delta[k])G.prof[k]=cl(G.prof[k]+(r.profile_delta[k]||0),-1,1);
     if(r.rulebook_new)for(const ru of r.rulebook_new)if(ru&&!G.rules.includes(ru))G.rules.push(ru);
     if(r.seeds)for(const s of r.seeds)if(s)G.seeds.push(s);
-    if(r.world_mood&&r.world_mood!=="null")G.mood=r.world_mood;
+    if(r.world_mood&&r.world_mood!=="null"){G.mood=r.world_mood;audio.setMood(G.mood,G.px>=0&&G.px<CS)}
     if(r.weather&&r.weather!=="null")G.wth=r.weather;
     if(r.arc&&r.arc!=="null"&&!G.arcs.includes(r.arc))G.arcs.push(r.arc);
     if(poi)poi.used=true;saving=G.time;save(G);
@@ -129,7 +132,12 @@ function init(){
     G.dayT=(G.dayT+dt*.00007)%1;
     const dL=Math.max(0,Math.sin(G.dayT*Math.PI*2-Math.PI/2)*.5+.5);
     const sw=cv.clientWidth,sh=cv.clientHeight;
-    const sR=lp(5,46,dL),sG=lp(5,60,dL),sB=lp(14,86,dL);
+    // Sunrise/sunset color shift — warm tones during transitions
+    const sunAngle=G.dayT*Math.PI*2-Math.PI/2;
+    const sunsetAmt=Math.max(0,Math.sin(sunAngle*2))*Math.max(0,1-Math.abs(dL-.5)*4);// peaks at dawn/dusk
+    const sR=lp(5,46,dL)+sunsetAmt*25;
+    const sG=lp(5,60,dL)+sunsetAmt*8;
+    const sB=lp(14,86,dL)-sunsetAmt*15;
     const shAmt=Math.max(0,1-(G.time-shT)*4)*3;
     const shX=Math.sin(G.time*40)*shAmt,shY=Math.cos(G.time*35)*shAmt;
 
@@ -150,7 +158,27 @@ function init(){
           if(world.tile(Math.floor(G.px),Math.floor(G.py+my))!==3&&world.tile(Math.floor(G.px),Math.floor(G.py+my))!==8)G.py+=my;
         }
         G.dw+=spd*dt;G.tv.add(`${G.px|0},${G.py|0}`);G.lastMT=G.time;G.idleT=false;audio.step(true,dt*.016);
+        // Footprints
+        fpAcc+=dt*.016;
+        if(fpAcc>.3){fpAcc=0;fpSide*=-1;
+          footprints.push({x:G.px+fpSide*.08,y:G.py+fpSide*.04,age:0,side:fpSide});
+          if(footprints.length>35)footprints.shift()}
+        // Track facing direction
+        if(Math.abs(dx)+Math.abs(dy)>.1){
+          if(dx>0&&dy>0)G.facing=0;else if(dx>0&&dy<0)G.facing=3;
+          else if(dx<0&&dy>0)G.facing=1;else if(dx<0&&dy<0)G.facing=2;
+          else if(dx>0)G.facing=0;else if(dx<0)G.facing=2;
+          else if(dy>0)G.facing=0;else G.facing=2;
+        }
       }
+      // Ambient audio
+      const inCity=G.px>=0&&G.px<CS&&G.py>=0&&G.py<CS;
+      audio.ambient(dt*.016,inCity);
+
+      // District change detection — show name briefly
+      const curDist=inCity?(gDist(G.px|0,G.py|0)===0?"DOWNTOWN":gDist(G.px|0,G.py|0)===1?"INDUSTRIAL":"RESIDENTIAL"):(G.px<-10||G.py<-10||G.px>CS+10||G.py>CS+10?"WILDERNESS":"CITY EDGE");
+      if(curDist!==G.lastDist){G.lastDist=curDist;G.distShowT=G.time}
+
       // Auto-triggers
       if(G.fm&&!G.ft&&G.dw>1.5){G.ft=true;autoT("first_move")}
       if(!mv&&G.time-G.lastMT>35&&!G.idleT&&G.ni>0){G.idleT=true;autoT("idle")}
@@ -165,8 +193,11 @@ function init(){
         for(const ch of world.vis(G.px,G.py))for(const p of ch.poi)if(p.id===n.id){p.x=n.x;p.y=n.y}
       }
 
-      // ── CAMERA ──
-      const bX=Math.sin(G.time*.3)*.6+shX,bY=Math.cos(G.time*.25)*.4+shY;
+      // ── CAMERA ── (faster breathing when sprinting)
+      const sprinting=G.keys["shift"]||joy.mg>.85;
+      const breathSpd=sprinting?1.2:.3;
+      const bX=Math.sin(G.time*breathSpd)*(.6+sprinting*.4)+shX;
+      const bY=Math.cos(G.time*(breathSpd*.8))*(.4+sprinting*.3)+shY;
       G.camX+=((G.px-G.py)*TW+bX-G.camX)*CLERP*dt;
       G.camY+=((G.px+G.py)*TH+bY-G.camY)*CLERP*dt;
 
@@ -178,6 +209,13 @@ function init(){
 
       // ═══ RENDER ═══
       ctx.fillStyle=`rgb(${sR|0},${sG|0},${sB|0})`;ctx.fillRect(0,0,sw,sh);
+      // Sunrise/sunset horizon glow
+      if(sunsetAmt>.1){
+        ctx.globalAlpha=sunsetAmt*.12;
+        ctx.fillStyle=`rgb(${180+sunsetAmt*40|0},${80+sunsetAmt*30|0},${40|0})`;
+        ctx.fillRect(0,sh*.35,sw,sh*.3);
+        ctx.globalAlpha=1;
+      }
 
       // Stars
       if(dL<.4){const sa=(.4-dL)*2.5;
@@ -195,6 +233,12 @@ function init(){
         }}
       allT.sort((a,b)=>(a.gx+a.gy)-(b.gx+b.gy));
       for(const t of allT)drawGnd(ctx,t.sx,t.sy,t.t,dL,t.gx,t.gy,G.time);
+
+      // Footprints (age + draw + cleanup)
+      for(const fp of footprints)fp.age+=dt*.016;
+      drawFootprints(ctx,footprints,G.camX,G.camY,sw,sh,dL);
+      while(footprints.length>0&&footprints[0].age>16)footprints.shift();
+
       for(const ch of vis)for(const p of ch.poi)drawPOI(ctx,p,G.camX,G.camY,sw,sh,G.time,p===G.nearPoi);
 
       // Depth-sorted entities
@@ -215,7 +259,10 @@ function init(){
       for(const e of ents){
         if(e.t===0)drawBldg(ctx,e.data,G.camX,G.camY,sw,sh,dL,G.time);
         else if(e.t===1)drawTree(ctx,e.data.x,e.data.y,G.camX,G.camY,sw,sh,dL);
-        else if(e.t===2){const p=iso(G.px,G.py,G.camX,G.camY,sw,sh);drawFig(ctx,p.sx,p.sy,G.time,mv,"#343640","#222230",1,true)}
+        else if(e.t===2){const p=iso(G.px,G.py,G.camX,G.camY,sw,sh);drawFig(ctx,p.sx,p.sy,G.time,mv,"#343640","#222230",1,true);
+          // Facing indicator — subtle dot ahead
+          if(mv){const fd=[[3,-1],[-1,2],[-3,1],[1,-2]][G.facing];
+            ctx.globalAlpha=.12;ctx.fillStyle="#aab";ctx.beginPath();ctx.arc(p.sx+fd[0]*3,p.sy+fd[1]*2-15,1.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1}}
         else if(e.t===3){const p=iso(e.data.x,e.data.y,G.camX,G.camY,sw,sh);
           if(p.sx>-40&&p.sx<sw+40)drawFig(ctx,p.sx,p.sy,G.time,Math.abs(e.data.wx||0)>.004,e.data.color||"#5a5a7e","#282838",.3)}
         else if(e.t===4){const p=iso(e.data.x,e.data.y,G.camX,G.camY,sw,sh);
@@ -226,9 +273,18 @@ function init(){
           const an=e.data;
           if(an.idle==="walk"){const dirs=[[.01,0],[0,.01],[-.01,0],[0,-.01]];const[ddx,ddy]=dirs[an.dir%4];
             const nx=an.x+ddx*an.spd*dt,ny=an.y+ddy*an.spd*dt;
-            if([1,2].includes(world.tile(Math.floor(nx),Math.floor(ny)))){an.x=nx;an.y=ny}else an.dir=(an.dir+1+(Math.random()*2|0))%4}
+            // NPCs slow/stop when player is very close
+            const distToP=Math.sqrt((an.x-G.px)**2+(an.y-G.py)**2);
+            if(distToP>3){
+              if([1,2].includes(world.tile(Math.floor(nx),Math.floor(ny)))){an.x=nx;an.y=ny}else an.dir=(an.dir+1+(Math.random()*2|0))%4
+            }
+          }
           const p=iso(an.x,an.y,G.camX,G.camY,sw,sh);
-          if(p.sx>-25&&p.sx<sw+25)drawFig(ctx,p.sx,p.sy,G.time+an.ph,an.idle==="walk",an.bc,an.lc,.22,false,an.idle);
+          const closeToPlayer=Math.sqrt((an.x-G.px)**2+(an.y-G.py)**2)<3.5;
+          if(p.sx>-25&&p.sx<sw+25){
+            drawFig(ctx,p.sx,p.sy,G.time+an.ph,an.idle==="walk"&&!closeToPlayer,an.bc,an.lc,.22,false,closeToPlayer&&an.idle!=="walk"?an.idle:an.idle);
+            drawNpcAware(ctx,p.sx,p.sy,closeToPlayer);
+          }
         }
         else if(e.t===7){
           const v=e.data;
@@ -242,9 +298,17 @@ function init(){
 
       for(const ch of vis)for(const l of ch.lamps)drawLamp(ctx,l,G.camX,G.camY,sw,sh,dL);
 
-      // Edge fade
-      ctx.globalAlpha=.15-dL*.05;ctx.fillStyle=`rgb(${sR|0},${sG|0},${sB|0})`;
-      ctx.fillRect(0,0,sw,sh*.1);ctx.fillRect(0,sh*.9,sw,sh*.1);ctx.fillRect(0,0,sw*.06,sh);ctx.fillRect(sw*.94,0,sw*.06,sh);ctx.globalAlpha=1;
+      // Edge vignette + night atmosphere
+      const vigA=.16-dL*.06;
+      ctx.globalAlpha=vigA;ctx.fillStyle=`rgb(${sR|0},${sG|0},${sB|0})`;
+      ctx.fillRect(0,0,sw,sh*.12);ctx.fillRect(0,sh*.88,sw,sh*.12);
+      ctx.fillRect(0,0,sw*.07,sh);ctx.fillRect(sw*.93,0,sw*.07,sh);
+      // Night fog — low-lying haze effect
+      if(dL<.3){
+        ctx.globalAlpha=((.3-dL)/.3)*.06;ctx.fillStyle=`rgb(${sR+10|0},${sG+10|0},${sB+15|0})`;
+        ctx.fillRect(0,sh*.6,sw,sh*.4);
+      }
+      ctx.globalAlpha=1;
 
       // Bubbles
       G.bubs=G.bubs.filter(b=>G.time-b.st<6);
@@ -255,10 +319,26 @@ function init(){
         ctx.fillStyle="rgba(10,10,18,.88)";ctx.fillRect(p.sx-tw/2,p.sy-52,tw,22);
         ctx.fillStyle="#d0ccc4";ctx.textAlign="center";ctx.fillText(b.text,p.sx,p.sy-37);ctx.globalAlpha=1}
 
-      // Weather
-      if(G.wth==="rain"||G.wth==="drizzle"){const int=G.wth==="rain"?.6:.25;
-        ctx.strokeStyle=`rgba(140,160,180,${.04*int})`;ctx.lineWidth=.5;
-        for(let i=0;i<18;i++){const rx=Math.random()*sw,ry=Math.random()*sh;ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-1,ry+5*int);ctx.stroke()}}
+      // Weather effects
+      if(G.wth==="rain"||G.wth==="drizzle"){
+        const int=G.wth==="rain"?.7:.3;
+        ctx.strokeStyle=`rgba(140,165,185,${.05*int})`;ctx.lineWidth=.5;
+        for(let i=0;i<22;i++){
+          const rx=Math.random()*sw,ry=Math.random()*sh;
+          ctx.beginPath();ctx.moveTo(rx,ry);ctx.lineTo(rx-1.5,ry+6*int);ctx.stroke();
+        }
+        // Ground splash circles
+        if(G.wth==="rain"){
+          ctx.strokeStyle=`rgba(120,140,165,${.03})`;ctx.lineWidth=.3;
+          for(let i=0;i<5;i++){
+            const rx=Math.random()*sw,ry=sh*.4+Math.random()*sh*.5;
+            ctx.beginPath();ctx.ellipse(rx,ry,2+Math.random()*2,1+Math.random(),0,0,Math.PI*2);ctx.stroke();
+          }
+        }
+      }
+      if(G.wth==="fog"){
+        ctx.globalAlpha=.08;ctx.fillStyle=`rgb(${sR+15|0},${sG+15|0},${sB+20|0})`;ctx.fillRect(0,0,sw,sh);ctx.globalAlpha=1;
+      }
 
     }else{
       G.intF=Math.min(1,G.intF+dt*.03);drawInt(ctx,sw,sh,G.intD,G.time,G.intF);
@@ -269,6 +349,18 @@ function init(){
       for(let i=0;i<Math.min(G.inv.length,6);i++)ctx.fillText(G.inv[i].glyph||"·",55+i*16,18);ctx.globalAlpha=1}
     if(!G.intr)drawMM(ctx,G,world,sw,sh);
 
+    // District name — fades in/out when changing area
+    if(G.distShowT>0){
+      const distAge=G.time-G.distShowT;
+      if(distAge<5){
+        const da=distAge<1?distAge:distAge>4?5-distAge:1;
+        ctx.globalAlpha=da*.25;ctx.fillStyle="#c8c0b4";ctx.font="10px 'Courier New',monospace";
+        ctx.textAlign="center";ctx.letterSpacing="4px";
+        ctx.fillText(G.lastDist,sw/2,sh*.18);
+        ctx.globalAlpha=1;
+      }
+    }
+
     // Interact button
     const bx=sw-50,by=sh-55;
     if(!G.intr){const hasN=!!G.nearPoi;const pulse=hasN?.55+Math.sin(G.time*3)*.18:.12;
@@ -277,6 +369,15 @@ function init(){
       ctx.globalAlpha=hasN?.85:.35;ctx.fillStyle=hasN?"#1a1a24":"#999";ctx.font=`bold ${hasN?18:16}px monospace`;ctx.textAlign="center";
       ctx.fillText(hasN?"?":"·",bx,by+6);
       if(hasN){ctx.globalAlpha=.35;ctx.fillStyle="#ffd866";ctx.font="8px monospace";ctx.fillText("toucher",bx,by+38)}ctx.globalAlpha=1;
+      // Show what's nearby
+      if(hasN&&G.nearPoi){
+        const desc=G.nearPoi.tp==="npc"?G.npcs.find(n=>n.id===G.nearPoi.id)?.desc:
+          G.nearPoi.tp==="door"?"porte":G.nearPoi.tp==="bench"?"banc":
+          G.nearPoi.tp==="object"?G.objs.find(o=>o.id===G.nearPoi.id)?.desc:null;
+        if(desc){ctx.globalAlpha=.25;ctx.fillStyle="#c8c0b4";ctx.font="8px 'Courier New',monospace";ctx.textAlign="center";
+          const maxW=sw*.4;let txt=desc;if(ctx.measureText(txt).width>maxW)txt=txt.substring(0,20)+"…";
+          ctx.fillText(txt,sw/2,sh-20);ctx.globalAlpha=1}
+      }
     }else{ctx.globalAlpha=.4;ctx.fillStyle="#aaa";ctx.beginPath();ctx.arc(bx,by,22,0,Math.PI*2);ctx.fill();
       ctx.globalAlpha=.8;ctx.fillStyle="#1a1a24";ctx.font="bold 16px monospace";ctx.textAlign="center";ctx.fillText("↓",bx,by+6);ctx.globalAlpha=1}
 
@@ -286,16 +387,18 @@ function init(){
 
     // Narrative bar
     if(G.narr){const n=G.narr,el=G.time-n.st;
-      if(!n.done){n.ci=Math.min(n.text.length,(el*16)|0);if(n.ci>=n.text.length){n.done=true;n.fs=G.time}}
+      if(!n.done){n.ci=Math.min(n.text.length,(el*18)|0);if(n.ci>=n.text.length){n.done=true;n.fs=G.time}}// slightly faster typewriter
       let a=1;if(n.done){const s=G.time-n.fs;if(s>8)a=Math.max(0,1-(s-8)/3);if(a<=0)G.narr=null}
       if(a>0&&G.narr){const barH=Math.min(58,sh*.1),barY=G.intr?sh*.68:sh-barH-90;
-        ctx.globalAlpha=a*.72;ctx.fillStyle="#000";ctx.fillRect(0,barY-4,sw,barH+12);
+        // Black bar with subtle top edge
+        ctx.globalAlpha=a*.75;ctx.fillStyle="#000";ctx.fillRect(0,barY-4,sw,barH+12);
+        ctx.globalAlpha=a*.08;ctx.fillStyle="#ffd866";ctx.fillRect(0,barY-5,sw,1);// golden edge line
         ctx.globalAlpha=a*.9;ctx.fillStyle="#d0ccc4";ctx.font="13px 'Courier New',monospace";ctx.textAlign="left";
         const mxW=sw-34,disp=G.narr.text.substring(0,G.narr.ci),words=disp.split(" ");let line="",ly=barY+12;
         for(const w of words){const t2=line+w+" ";if(ctx.measureText(t2).width>mxW){ctx.fillText(line,16,ly);ly+=17;line=w+" "}else line=t2}
         ctx.fillText(line,16,ly);
         if(!G.narr.done&&Math.sin(G.time*6)>0){ctx.fillStyle="#ffd866";ctx.fillRect(16+ctx.measureText(line).width+2,ly-10,1.5,12)}
-        if(G.narr.done){ctx.globalAlpha=a*.18;ctx.font="8px monospace";ctx.textAlign="right";ctx.fillText("tap",sw-16,barY+barH)}ctx.globalAlpha=1}}
+        if(G.narr.done){ctx.globalAlpha=a*.15;ctx.font="8px monospace";ctx.textAlign="right";ctx.fillText("tap",sw-16,barY+barH)}ctx.globalAlpha=1}}
 
     // Save indicator
     if(G.time-saving<1.5){ctx.globalAlpha=(1-(G.time-saving)/1.5)*.18;ctx.fillStyle="#888";ctx.font="7px monospace";ctx.textAlign="right";ctx.fillText("✓",sw-8,sh-4);ctx.globalAlpha=1}
