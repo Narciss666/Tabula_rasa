@@ -214,7 +214,6 @@ function updateGame(time,delta){
   for(var i=textPool.length-1;i>=0;i--)textPool[i].setAlpha(0);textIdx=0;
 
   // Joystick
-    // Draw joystick on a separate fixed graphics — we'll use the world gfx with screen coords
   // Actually we need screen-space drawing. Use a trick: offset by camera scroll
   var ox=camX,oy=camY;
   ctx.globalAlpha=joyActive?.2:.06;ctx.fillStyle="#333355";ctx.beginPath();ctx.arc(joyBase.x,joyBase.y,joyR,0,Math.PI*2);ctx.fill();
@@ -275,7 +274,7 @@ function updateGame(time,delta){
   // Audio
   updateAudio();
   // Weather
-  drawWeather(gfx,sw,sh,camX,camY);
+  drawWeather(ctx,sw,sh);
   if(Math.floor(G.time)%10===0)save();
 }
 
@@ -447,12 +446,12 @@ function envDamage(dt,bio,dL){
 }
 
 // ═══ WEATHER PARTICLES ═══
-function drawWeather(gfx2,sw2,sh2,ox2,oy2){
-  if(G.wth==="rain"||G.wth==="drizzle"){var n=G.wth==="rain"?50:20;gfx2.lineStyle(.5,0x8ca5b9,.07);for(var i=0;i<n;i++){var rx=Math.random()*sw2+ox2,ry=Math.random()*sh2+oy2;gfx2.lineBetween(rx,ry,rx-2,ry+8)}}
-  if(G.wth==="storm"){gfx2.lineStyle(.7,0x8299b4,.08);for(var i=0;i<70;i++){var rx=Math.random()*sw2+ox2,ry=Math.random()*sh2+oy2;gfx2.lineBetween(rx,ry,rx-3,ry+12)}var lt=(G.time*.3)%7;if(lt<.08){gfx2.fillStyle(0xe8e0ff,.12);gfx2.fillRect(ox2,oy2,sw2,sh2)}}
-  if(G.wth==="snow"){gfx2.fillStyle(0xdde5ee,1);for(var i=0;i<40;i++){var sx2=(Math.sin(G.time*.3+i*47)+1)*sw2/2+ox2,sy2=((G.time*12+i*sh2/40)%sh2)+oy2;gfx2.fillCircle(sx2,sy2,.8+Math.sin(i)*.4)}}
-  if(G.wth==="fog"){gfx2.fillStyle(0xb0b5c0,.04);gfx2.fillRect(ox2,oy2,sw2,sh2)}
-  if(G.wth==="heat"){gfx2.fillStyle(0xffc880,.015);gfx2.fillRect(ox2,oy2,sw2,sh2)}
+function drawWeather(c,sw2,sh2){
+  if(G.wth==="rain"||G.wth==="drizzle"){var n=G.wth==="rain"?50:20;c.strokeStyle="rgba(140,165,185,0.07)";c.lineWidth=.5;for(var i=0;i<n;i++){var rx=Math.random()*sw2,ry=Math.random()*sh2;c.beginPath();c.moveTo(rx,ry);c.lineTo(rx-2,ry+8);c.stroke()}}
+  if(G.wth==="storm"){c.strokeStyle="rgba(130,153,180,0.08)";c.lineWidth=.7;for(var i=0;i<70;i++){var rx=Math.random()*sw2,ry=Math.random()*sh2;c.beginPath();c.moveTo(rx,ry);c.lineTo(rx-3,ry+12);c.stroke()}var lt=(G.time*.3)%7;if(lt<.08){c.globalAlpha=.12;c.fillStyle="#e8e0ff";c.fillRect(0,0,sw2,sh2);c.globalAlpha=1}}
+  if(G.wth==="snow"){c.fillStyle="#dde5ee";for(var i=0;i<40;i++){var sx2=(Math.sin(G.time*.3+i*47)+1)*sw2/2,sy2=((G.time*12+i*sh2/40)%sh2);c.beginPath();c.arc(sx2,sy2,.8+Math.sin(i)*.4,0,Math.PI*2);c.fill()}}
+  if(G.wth==="fog"){c.globalAlpha=.04;c.fillStyle="#b0b5c0";c.fillRect(0,0,sw2,sh2);c.globalAlpha=1}
+  if(G.wth==="heat"){c.globalAlpha=.015;c.fillStyle="#ffc880";c.fillRect(0,0,sw2,sh2);c.globalAlpha=1}
 }
 
 // Props renderer using canvas 2d context (for sprite-based rendering)
