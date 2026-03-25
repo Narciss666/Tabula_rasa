@@ -10,11 +10,12 @@ var DSYS='Tu es le Directeur de Tabula Rasa. Rien n\'existe tant que le joueur n
 function getCurBio(){return world.gc(Math.floor(G.px/CH),Math.floor(G.py/CH)).bio||""}
 function callDir(action,cb){var inv=G.inv.length?G.inv.map(function(o){return o.desc}).join(","):"rien";fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:DSYS,messages:[{role:"user",content:action+"\nBIOME:"+getCurBio()+"|INV:"+inv+"|COMP:"+G.skills.join(",")}]})}).then(function(r){return r.json()}).then(function(d){try{var t=d.content[0].text;cb(JSON.parse(t.substring(t.indexOf("{"))))}catch(e){cb(null)}}).catch(function(){cb(null)})}
 
-var gfx,uiCont,joyActive=false,joyX=0,joyY=0,joyPtr=null,joyR=42,joyBase,btnBase,btnR=28;
+var uiCont,joyActive=false,joyX=0,joyY=0,joyPtr=null,joyR=42,joyBase,btnBase,btnR=28;
 var narrLabel,bioLabel,invLabels=[],choiceLabels=[],gaugeLabels=[],skillLabels=[],choiceRects=null;
 var narrTimer=0,textPool=[],textIdx=0;
 
-var game=new Phaser.Game({type:Phaser.CANVAS,width:window.innerWidth,height:window.innerHeight,backgroundColor:"#060610",scale:{mode:Phaser.Scale.RESIZE,autoCenter:Phaser.Scale.CENTER_BOTH},input:{activePointers:3},render:{antialias:false,pixelArt:true},scene:{preload:preloadGame,create:createGame,update:updateGame}});
+var _pw=Math.min(window.innerWidth,360),_ph=Math.round(_pw*(window.innerHeight/window.innerWidth));
+var game=new Phaser.Game({type:Phaser.CANVAS,width:_pw,height:_ph,backgroundColor:"#060610",scale:{mode:Phaser.Scale.FIT,autoCenter:Phaser.Scale.CENTER_BOTH},input:{activePointers:3},fps:{target:30,forceSetTimeOut:true},render:{antialias:false,pixelArt:true,clearBeforeRender:false},scene:{preload:preloadGame,create:createGame,update:updateGame}});
 var sc;var citySheet=null,landSheet=null;
 function preloadGame(){
   this.load.image("cityTiles","assets/cityTiles_sheet.png");
@@ -22,7 +23,7 @@ function preloadGame(){
 }
 
 function createGame(){
-  sc=this;gfx=this.add.graphics();
+  sc=this;
   citySheet=this.textures.get("cityTiles").getSourceImage();
   landSheet=this.textures.get("landTiles").getSourceImage();
   var sw=this.scale.width,sh=this.scale.height;
@@ -140,10 +141,10 @@ function updateGame(time,delta){
   var camX=this.cameras.main.scrollX,camY=this.cameras.main.scrollY;
 
   // ═══ RENDER ═══
-  gfx.clear();
-  var vL=camX-80,vR=camX+sw+80,vT=camY-80,vB=camY+sh+120;
-  // Get canvas context for drawImage (sprite rendering)
   var ctx=this.sys.game.canvas.getContext("2d");
+  ctx.fillStyle="#060610";ctx.fillRect(0,0,sw,sh);
+    var vL=camX-80,vR=camX+sw+80,vT=camY-80,vB=camY+sh+120;
+  // Get canvas context for drawImage (sprite rendering)
   ctx.save();
   // Apply camera transform
   ctx.translate(-camX, -camY);
@@ -200,11 +201,10 @@ function updateGame(time,delta){
   ctx.restore();
 
   // PLAYER — draw via canvas ctx in screen space
-  var ctx2=this.sys.game.canvas.getContext("2d");
   var pP=iso(G.px,G.py);var psx=pP.sx-camX,psy=pP.sy-camY;
   var inW=world.tile(Math.floor(G.px),Math.floor(G.py))===8,bob=moving?Math.abs(Math.sin(G.time*8))*3:0,leg=moving?Math.sin(G.time*10)*3:0,arm=moving?Math.sin(G.time*10+1)*2:0;
-  if(inW){ctx2.fillStyle="rgba(30,60,140,0.35)";ctx2.beginPath();ctx2.ellipse(psx,psy,18,7,0,0,Math.PI*2);ctx2.fill();ctx2.fillStyle="#343640";ctx2.fillRect(psx-4,psy-18-bob,8,10);ctx2.fillStyle="#c8beb4";ctx2.beginPath();ctx2.arc(psx,psy-22-bob,4,0,Math.PI*2);ctx2.fill()
-  }else{ctx2.fillStyle="rgba(0,0,0,0.12)";ctx2.beginPath();ctx2.ellipse(psx,psy+1,10,4,0,0,Math.PI*2);ctx2.fill();ctx2.strokeStyle="#222230";ctx2.lineWidth=2;ctx2.beginPath();ctx2.moveTo(psx-2,psy-8-bob);ctx2.lineTo(psx-3-leg,psy);ctx2.moveTo(psx+2,psy-8-bob);ctx2.lineTo(psx+3+leg,psy);ctx2.stroke();ctx2.fillStyle="#343640";ctx2.fillRect(psx-4,psy-20-bob,8,12);ctx2.strokeStyle="#343640";ctx2.lineWidth=1.5;ctx2.beginPath();ctx2.moveTo(psx-4,psy-18-bob);ctx2.lineTo(psx-7-arm,psy-11-bob);ctx2.moveTo(psx+4,psy-18-bob);ctx2.lineTo(psx+7+arm,psy-11-bob);ctx2.stroke();ctx2.fillStyle="#c8beb4";ctx2.beginPath();ctx2.arc(psx,psy-24-bob,4.5,0,Math.PI*2);ctx2.fill();ctx2.fillStyle="#222028";ctx2.beginPath();ctx2.arc(psx,psy-25.5-bob,4.5,Math.PI,Math.PI*2);ctx2.fill();ctx2.fillStyle="rgba(168,184,204,0.04)";ctx2.beginPath();ctx2.arc(psx,psy-14,26,0,Math.PI*2);ctx2.fill()}
+  if(inW){ctx.fillStyle="rgba(30,60,140,0.35)";ctx.beginPath();ctx.ellipse(psx,psy,18,7,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#343640";ctx.fillRect(psx-4,psy-18-bob,8,10);ctx.fillStyle="#c8beb4";ctx.beginPath();ctx.arc(psx,psy-22-bob,4,0,Math.PI*2);ctx.fill()
+  }else{ctx.fillStyle="rgba(0,0,0,0.12)";ctx.beginPath();ctx.ellipse(psx,psy+1,10,4,0,0,Math.PI*2);ctx.fill();ctx.strokeStyle="#222230";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(psx-2,psy-8-bob);ctx.lineTo(psx-3-leg,psy);ctx.moveTo(psx+2,psy-8-bob);ctx.lineTo(psx+3+leg,psy);ctx.stroke();ctx.fillStyle="#343640";ctx.fillRect(psx-4,psy-20-bob,8,12);ctx.strokeStyle="#343640";ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(psx-4,psy-18-bob);ctx.lineTo(psx-7-arm,psy-11-bob);ctx.moveTo(psx+4,psy-18-bob);ctx.lineTo(psx+7+arm,psy-11-bob);ctx.stroke();ctx.fillStyle="#c8beb4";ctx.beginPath();ctx.arc(psx,psy-24-bob,4.5,0,Math.PI*2);ctx.fill();ctx.fillStyle="#222028";ctx.beginPath();ctx.arc(psx,psy-25.5-bob,4.5,Math.PI,Math.PI*2);ctx.fill();ctx.fillStyle="rgba(168,184,204,0.04)";ctx.beginPath();ctx.arc(psx,psy-14,26,0,Math.PI*2);ctx.fill()}
 
   var ox=camX,oy=camY;
 
@@ -214,18 +214,18 @@ function updateGame(time,delta){
   for(var i=textPool.length-1;i>=0;i--)textPool[i].setAlpha(0);textIdx=0;
 
   // Joystick
-  gfx.lineStyle(0);// reset
-  if(joyActive){pTxt("",joyBase.x,joyBase.y,1,1);/* drawn via gfx below */}
-  // Draw joystick on a separate fixed graphics — we'll use the world gfx with screen coords
+    // Draw joystick on a separate fixed graphics — we'll use the world gfx with screen coords
   // Actually we need screen-space drawing. Use a trick: offset by camera scroll
   var ox=camX,oy=camY;
-  if(joyActive){gfx.fillStyle(0x333355,.2);gfx.fillCircle(joyBase.x+ox,joyBase.y+oy,joyR);gfx.lineStyle(1.5,0x555577,.3);gfx.strokeCircle(joyBase.x+ox,joyBase.y+oy,joyR);gfx.fillStyle(0x8888bb,.35);gfx.fillCircle(joyBase.x+joyX*joyR+ox,joyBase.y+joyY*joyR+oy,16)}
-  else{gfx.fillStyle(0x444466,.06);gfx.fillCircle(75+ox,(sh-100)+oy,30);gfx.lineStyle(.5,0x555577,.1);gfx.strokeCircle(75+ox,(sh-100)+oy,30)}
+  ctx.globalAlpha=joyActive?.2:.06;ctx.fillStyle="#333355";ctx.beginPath();ctx.arc(joyBase.x,joyBase.y,joyR,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=joyActive?.3:.1;ctx.strokeStyle="#555577";ctx.lineWidth=1;ctx.beginPath();ctx.arc(joyBase.x,joyBase.y,joyR,0,Math.PI*2);ctx.stroke();
+  if(joyActive){ctx.globalAlpha=.35;ctx.fillStyle="#8888bb";ctx.beginPath();ctx.arc(joyBase.x+joyX*joyR,joyBase.y+joyY*joyR,14,0,Math.PI*2);ctx.fill()}
+  ctx.globalAlpha=1;
 
   // Interact button
   var hasN=!!G.nearPoi,pulse=hasN?.5+Math.sin(G.time*3)*.15:.08;
-  gfx.fillStyle(hasN?0xffd866:0x444444,pulse);gfx.fillCircle(btnBase.x+ox,btnBase.y+oy,hasN?btnR:btnR-4);
-  gfx.lineStyle(1.5,hasN?0xffcc44:0x555555,hasN?.5:.12);gfx.strokeCircle(btnBase.x+ox,btnBase.y+oy,hasN?btnR:btnR-4);
+  ctx.globalAlpha=pulse;ctx.fillStyle=hasN?"#ffd866":"#444444";ctx.beginPath();ctx.arc(btnBase.x,btnBase.y,hasN?btnR:btnR-4,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=hasN?.5:.12;ctx.strokeStyle=hasN?"#ffcc44":"#555555";ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(btnBase.x,btnBase.y,hasN?btnR:btnR-4,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
 
   // Button label
   pTxt(hasN?"?":"·",btnBase.x-3,btnBase.y-5,hasN?14:12,hasN?.8:.3);
@@ -234,13 +234,13 @@ function updateGame(time,delta){
   if(G.nearPoi)pTxt(G.nearPoi.desc||G.nearPoi.tp,btnBase.x-30,btnBase.y+btnR+8,8,.35);
 
   // Inventory count
-  if(G.inv.length>0){gfx.fillStyle(0xc8c0b4,.3);gfx.fillRect(10+ox,10+oy,28,20);pTxt(G.inv.length+"",18,18,10,.5)}
+  if(G.inv.length>0){ctx.globalAlpha=.3;ctx.fillStyle="#c8c0b4";ctx.fillRect(10,10,28,20);ctx.globalAlpha=1;pTxt(G.inv.length+"",18,18,10,.5)}
 
   // Menu hamburger
-  gfx.fillStyle(0xc8c0b4,.2);gfx.fillRect(sw-32+ox,12+oy,16,2);gfx.fillRect(sw-32+ox,17+oy,16,2);gfx.fillRect(sw-32+ox,22+oy,16,2);
+  ctx.globalAlpha=.2;ctx.fillStyle="#c8c0b4";ctx.fillRect(sw-32,12,16,2);ctx.fillRect(sw-32,17,16,2);ctx.fillRect(sw-32,22,16,2);ctx.globalAlpha=1;
 
   // Gauges
-  var gy2=38;for(var gk in G.gauges){var gv=G.gauges[gk],pct=Math.max(0,gv.val/gv.max);gfx.fillStyle(0x222233,.35);gfx.fillRect(10+ox,gy2+oy,60,6);gfx.fillStyle(pct>.5?0x508040:pct>.2?0xa09030:0xa03030,.5);gfx.fillRect(10+ox,gy2+oy,60*pct,6);pTxt(gk,12,gy2+5,6,.25);gy2+=10}
+  var gy2=38;for(var gk in G.gauges){var gv=G.gauges[gk],pct=Math.max(0,gv.val/gv.max);ctx.globalAlpha=.35;ctx.fillStyle="#222233";ctx.fillRect(10,gy2,60,6);ctx.globalAlpha=.5;ctx.fillStyle=pct>.5?"#508040":pct>.2?"#a09030":"#a03030";ctx.fillRect(10,gy2,60*pct,6);ctx.globalAlpha=1;pTxt(gk,12,gy2+5,6,.25);gy2+=10}
 
   // Skills
   for(var si=0;si<Math.min(G.skills.length,5);si++)pTxt(G.skills[si],sw-70,32+si*10,7,.2);
@@ -249,20 +249,20 @@ function updateGame(time,delta){
   if(G.mortal)pTxt("mortel",sw-50,sh-12,8,.12+Math.sin(G.time*.5)*.04);
 
   // Narrative
-  if(narrTimer>0){narrTimer-=dt*.016;var na=Math.min(1,narrTimer/.5);narrLabel.setAlpha(na*.7);gfx.fillStyle(0x060610,.5*na);gfx.fillRect(ox,sh-140+oy,sw,140)}else narrLabel.setAlpha(0);
+  if(narrTimer>0){narrTimer-=dt*.016;var na=Math.min(1,narrTimer/.5);narrLabel.setAlpha(na*.7);ctx.globalAlpha=.5*na;ctx.fillStyle="#060610";ctx.fillRect(0,sh-140,sw,140);ctx.globalAlpha=1}else narrLabel.setAlpha(0);
 
   // Choices
   choiceRects=null;
-  if(G.choices&&G.choices.length>=2){choiceRects=[];var cw2=Math.min(sw*.85,280),cy2=sh*.5;gfx.fillStyle(0x0c0c14,.85);gfx.fillRect((sw-cw2)/2+ox,cy2-10+oy,cw2,G.choices.length*36+20);for(var ci4=0;ci4<G.choices.length;ci4++){var cx2=(sw-cw2)/2+8,ccy=cy2+ci4*36;gfx.fillStyle(0xc8c0a0,.06);gfx.fillRect(cx2+ox,ccy+oy,cw2-16,30);gfx.lineStyle(.5,0xc8c0a0,.12);gfx.strokeRect(cx2+ox,ccy+oy,cw2-16,30);pTxt((ci4+1)+". "+G.choices[ci4],cx2+8,ccy+16,9,.6);choiceRects.push({x:cx2,y:ccy,w:cw2-16,h:30})}}
+  if(G.choices&&G.choices.length>=2){choiceRects=[];var cw2=Math.min(sw*.85,280),cy2=sh*.5;ctx.globalAlpha=.85;ctx.fillStyle="#0c0c14";ctx.fillRect((sw-cw2)/2,cy2-10,cw2,G.choices.length*36+20);for(var ci4=0;ci4<G.choices.length;ci4++){var cx2=(sw-cw2)/2+8,ccy=cy2+ci4*36;ctx.globalAlpha=.06;ctx.fillStyle="#c8c0a0";ctx.fillRect(cx2,ccy,cw2-16,30);ctx.globalAlpha=.12;ctx.strokeStyle="#c8c0a0";ctx.lineWidth=.5;ctx.strokeRect(cx2,ccy,cw2-16,30);ctx.globalAlpha=1;pTxt((ci4+1)+". "+G.choices[ci4],cx2+8,ccy+16,9,.6);choiceRects.push({x:cx2,y:ccy,w:cw2-16,h:30})}}
 
   // Inventory panel
-  if(G.invOpen&&G.inv.length>0){var iw=Math.min(sw*.75,240),ih=Math.min(sh*.6,G.inv.length*26+90),ix=(sw-iw)/2,iy=(sh-ih)/2;gfx.fillStyle(0x0c0c14,.9);gfx.fillRect(ix+ox,iy+oy,iw,ih);gfx.lineStyle(.5,0xc8c0a0,.15);gfx.strokeRect(ix+ox,iy+oy,iw,ih);pTxt(craftSel>=0?"COMBINER":"INVENTAIRE",sw/2-30,iy+12,10,.5);for(var ii=0;ii<G.inv.length;ii++){if(ii===G.invSel){gfx.fillStyle(0xffd866,.08);gfx.fillRect(ix+4+ox,iy+24+ii*26+oy,iw-8,24)}if(ii===craftSel){gfx.fillStyle(0x66ff66,.06);gfx.fillRect(ix+4+ox,iy+24+ii*26+oy,iw-8,24)}pTxt((G.inv[ii].glyph||"·")+" "+G.inv[ii].desc,ix+10,iy+38+ii*26,9,ii===G.invSel?.7:.4)}
+  if(G.invOpen&&G.inv.length>0){var iw=Math.min(sw*.75,240),ih=Math.min(sh*.6,G.inv.length*26+90),ix=(sw-iw)/2,iy=(sh-ih)/2;ctx.globalAlpha=.9;ctx.fillStyle="#0c0c14";ctx.fillRect(ix,iy,iw,ih);ctx.globalAlpha=.15;ctx.strokeStyle="#c8c0a0";ctx.lineWidth=.5;ctx.strokeRect(ix,iy,iw,ih);ctx.globalAlpha=1;pTxt(craftSel>=0?"COMBINER":"INVENTAIRE",sw/2-30,iy+12,10,.5);for(var ii=0;ii<G.inv.length;ii++){if(ii===G.invSel){ctx.globalAlpha=.08;ctx.fillStyle="#ffd866";ctx.fillRect(ix+4,iy+24+ii*26,iw-8,24);ctx.globalAlpha=1}if(ii===craftSel){ctx.globalAlpha=.06;ctx.fillStyle="#66ff66";ctx.fillRect(ix+4,iy+24+ii*26,iw-8,24);ctx.globalAlpha=1}pTxt((G.inv[ii].glyph||"·")+" "+G.inv[ii].desc,ix+10,iy+38+ii*26,9,ii===G.invSel?.7:.4)}
     // Action buttons
     var abY=iy+24+G.inv.length*26+8;var acts=craftSel>=0?["Annuler","","","Combiner"]:["Utiliser","Combiner","Poser",""];var abW=(iw-8)/4;
-    for(var ai=0;ai<4;ai++){if(!acts[ai])continue;var ax=ix+4+ai*abW;gfx.fillStyle(0xc8c0a0,.06);gfx.fillRect(ax+ox,abY+oy,abW-2,22);gfx.lineStyle(.3,0xc8c0a0,.12);gfx.strokeRect(ax+ox,abY+oy,abW-2,22);pTxt(acts[ai],ax+abW/2-12,abY+13,7,.5)}}
+    for(var ai=0;ai<4;ai++){if(!acts[ai])continue;var ax=ix+4+ai*abW;ctx.globalAlpha=.06;ctx.fillStyle="#c8c0a0";ctx.fillRect(ax,abY,abW-2,22);ctx.globalAlpha=.12;ctx.strokeStyle="#c8c0a0";ctx.lineWidth=.3;ctx.strokeRect(ax,abY,abW-2,22);ctx.globalAlpha=1;pTxt(acts[ai],ax+abW/2-12,abY+13,7,.5)}}
 
   // Menu
-  if(G.menuOpen){gfx.fillStyle(0,0.75);gfx.fillRect(ox,oy,sw,sh);pTxt("TABULA RASA",sw/2-35,sh/2-40,14,.6);pTxt(G.skills.length+" compétences | "+G.inv.length+" objets",sw/2-60,sh/2-20,8,.3);pTxt("Tap pour fermer",sw/2-30,sh/2+10,9,.2)}
+  if(G.menuOpen){ctx.globalAlpha=.75;ctx.fillStyle="#000";ctx.fillRect(0,0,sw,sh);ctx.globalAlpha=1;pTxt("TABULA RASA",sw/2-35,sh/2-40,14,.6);pTxt(G.skills.length+" compétences | "+G.inv.length+" objets",sw/2-60,sh/2-20,8,.3);pTxt("Tap pour fermer",sw/2-30,sh/2+10,9,.2)}
 
   // Gauge decay
   if(G.gauges.faim)G.gauges.faim.val=Math.max(0,G.gauges.faim.val-dt*.0008);
